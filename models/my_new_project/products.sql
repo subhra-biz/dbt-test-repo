@@ -1,6 +1,5 @@
 {{ config(
-    materialized='incremental',
-    unique_key='src_productcode'
+    materialized='incremental'
 ) }}
 
 WITH source_data AS (
