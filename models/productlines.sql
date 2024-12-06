@@ -24,7 +24,7 @@ existing_data AS (
         dw_update_timestamp,
         dw_product_line_id
     FROM
-        devdw.productlines  -- Refers to the current state of the table created by dbt
+        {{this}}  -- Refers to the current state of the table created by dbt
 ),
 
 ranked_data AS (
