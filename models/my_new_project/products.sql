@@ -1,6 +1,6 @@
 {{ config(
     materialized='incremental',
-    unique_key='productCode'
+    unique_key='src_productCode'
 ) }}
 
 WITH updated_records AS (
