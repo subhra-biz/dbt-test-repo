@@ -1,7 +1,4 @@
-{{ config(
-    schema='devdw',        -- Target schema
-    materialized='table'   -- Ensures the output is a table in Redshift
-) }}
+{{ config(materialized='table') }}
 
 SELECT *
-FROM {{ source('devstage', 'productlines') }}; -- Source table in devstage schema
+FROM {{ source('devstage', 'productlines') }};
