@@ -3,14 +3,14 @@
     unique_key='dw_productline_id'     
 ) }}
 
--- Define the ETL batch number and batch date dynamically or statically
+
 {% set etl_batch_no = 1001 %}
 {% set etl_batch_date = '2001-01-01' %}
 
--- Define the logic for updating and inserting records
 
 
--- Insert new records (only if they do not exist in the target table)
+
+
 INSERT INTO devdw.productlines (
     productLine,
     src_create_timestamp,
