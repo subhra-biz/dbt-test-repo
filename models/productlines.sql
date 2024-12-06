@@ -1,6 +1,6 @@
 {{ config(
     materialized='incremental',  
-    unique_key='productLine'     
+    unique_key='dw_productline_id'     
 ) }}
 
 -- Define the ETL batch number and batch date dynamically or statically
