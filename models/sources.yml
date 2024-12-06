@@ -1,6 +1,7 @@
 version: 2
 
 sources:
-  - name: devstage          # Schema name
+  - name: devstage
+    schema: devstage  # Redshift schema name
     tables:
-      - name: productlines  # Table name
+      - name: productlines  # Table name in Redshift
