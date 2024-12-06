@@ -1,91 +1,89 @@
 {{ config(
     materialized='incremental',
-    unique_key='productCode'
+    unique_key='src_productcode'
 ) }}
 
-WITH updated_records AS (
-    -- Update records that exist in both staging and destination tables
-    SELECT 
-        st.productCode,
-        st.productName,
-        st.productLine,
-        st.productScale,
-        st.productVendor,
-        st.quantityInStock,
-        st.buyPrice,
-        st.MSRP,
-        st.create_timestamp AS src_create_timestamp, -- Using create timestamp for updated records
-        st.update_timestamp AS src_update_timestamp,
-        CURRENT_TIMESTAMP AS dw_create_timestamp, -- Set current timestamp for updated records
-        CURRENT_TIMESTAMP AS dw_update_timestamp,
+WITH source_data AS (
+    SELECT
+        productcode AS src_productcode,
+        productname,
+        productline,
+        productscale,
+        productvendor,
+        quantityinstock,
+        buyprice,
+        msrp,
+        create_timestamp,
+        update_timestamp,
         1001 AS etl_batch_no,
-        CAST('2001-01-01' AS DATE) AS etl_batch_date
-        
-    FROM devstage.products AS st
-    JOIN devdw.products AS dw
-        ON st.productCode = dw.src_productCode
+        TO_DATE('2001-01-01', 'YYYY-MM-DD') AS etl_batch_date
+    FROM
+        devstage.products
 ),
-inserted_records AS (
-    -- Insert new records from staging that do not exist in the destination table
-    SELECT 
-        st.productCode,
-        st.productName,
-        st.productLine,
-        st.productScale,
-        st.productVendor,
-        st.quantityInStock,
-        st.buyPrice,
-        st.MSRP,
-        st.create_timestamp AS src_create_timestamp, -- For new records, use create timestamp
-        st.update_timestamp AS src_update_timestamp,
-        CURRENT_TIMESTAMP AS dw_create_timestamp,
-        CURRENT_TIMESTAMP AS dw_update_timestamp,
+
+product_lines AS (
+    SELECT
+        productline,
+        dw_product_line_id
+    FROM
+        devdw.productlines
+),
+
+existing_data AS (
+    SELECT
+        src_productcode,
+        productname,
+        productline,
+        productscale,
+        productvendor,
+        quantityinstock,
+        buyprice,
+        msrp,
+        dw_product_line_id,
+        src_create_timestamp,
+        src_update_timestamp,
+        etl_batch_no,
+        etl_batch_date,
+        dw_update_timestamp,
+        dw_product_id
+    FROM
+        devdw.products  -- Refers to the current state of the table created by dbt
+),
+
+ranked_data AS (
+    SELECT
+        source_data.src_productcode,
+        source_data.productname,
+        source_data.productline,
+        source_data.productscale,
+        source_data.productvendor,
+        source_data.quantityinstock,
+        source_data.buyprice,
+        source_data.msrp,
+        COALESCE(pl.dw_product_line_id, existing_data.dw_product_line_id) AS dw_product_line_id,
+        CASE
+            WHEN existing_data.src_productcode IS NULL THEN source_data.create_timestamp
+            ELSE existing_data.src_create_timestamp
+        END AS src_create_timestamp,
+        COALESCE(source_data.update_timestamp, existing_data.src_update_timestamp) AS src_update_timestamp,
         1001 AS etl_batch_no,
-        CAST('2001-01-01' AS DATE) AS etl_batch_date
-    FROM devstage.products AS st
-    LEFT JOIN devdw.products AS dw
-        ON st.productCode = dw.src_productCode
-    WHERE dw.src_productCode IS NULL
+        TO_DATE('2001-01-01', 'YYYY-MM-DD') AS etl_batch_date,
+        CURRENT_TIMESTAMP AS dw_create_timestamp,
+        CASE
+            WHEN source_data.src_productcode IS NOT NULL THEN CURRENT_TIMESTAMP
+            ELSE existing_data.dw_update_timestamp
+        END AS dw_update_timestamp,
+        ROW_NUMBER() OVER (ORDER BY source_data.src_productcode) + COALESCE(MAX(existing_data.dw_product_id) OVER (), 0) AS dw_product_id
+    FROM
+        source_data
+    LEFT JOIN existing_data ON source_data.src_productcode = existing_data.src_productcode
+    LEFT JOIN product_lines pl ON source_data.productline = pl.productline
 )
 
--- Combining both update and insert operations using UNION ALL
-SELECT 
-    productCode as src_productcode,
-    productName,
-    productLine,
-    productScale,
-    productVendor,
-    quantityInStock,
-    buyPrice,
-    MSRP,
-    src_create_timestamp,
-    src_update_timestamp,
-    dw_create_timestamp,
-    dw_update_timestamp,
-    etl_batch_no,
-    etl_batch_date
-FROM updated_records
-
-UNION ALL
-
-SELECT 
-    productCode as src_productcode,
-    productName,
-    productLine,
-    productScale,
-    productVendor,
-    quantityInStock,
-    buyPrice,
-    MSRP,
-    src_create_timestamp,
-    src_update_timestamp,
-    dw_create_timestamp,
-    dw_update_timestamp,
-    etl_batch_no,
-    etl_batch_date
-FROM inserted_records
+SELECT *
+FROM ranked_data
 
 {% if is_incremental() %}
--- Only include rows that have been inserted or updated in incremental runs
-WHERE productCode IS NOT NULL
+WHERE
+    ranked_data.src_productcode IS NOT NULL  -- Only process new or updated rows
 {% endif %}
