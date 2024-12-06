@@ -1,0 +1,6 @@
+version: 2
+
+sources:
+  - name: devstage          # Schema name
+    tables:
+      - name: productlines  # Table name
