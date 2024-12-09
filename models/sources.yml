@@ -8,3 +8,4 @@ sources:
       - name: products
       - name: offices
       - name: employees
+      - name: customers
