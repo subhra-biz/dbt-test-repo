@@ -14,18 +14,20 @@ WITH processed_data AS (
         COALESCE(dw.dw_update_timestamp, CURRENT_TIMESTAMP) AS dw_update_timestamp,
         CURRENT_TIMESTAMP AS dw_create_timestamp,
         ROW_NUMBER() OVER (ORDER BY st.productline) 
-            + COALESCE(MAX(dw.dw_product_line_id) OVER (), 0) AS dw_product_line_id
+            + COALESCE(MAX(dw.dw_product_line_id) OVER (), 0) AS dw_product_line_id,
+           dw.productline AS dw_productline 
     FROM 
-        devstage.productlines AS st
+        {{source("devstage","productlines")}} AS st
     LEFT JOIN {{this}} AS dw
         ON st.productline = dw.productline
 )
 
-SELECT *
+SELECT dw_product_line_id,productline,textdescription,src_create_timestamp,src_update_timestamp,dw_create_timestamp,dw_update_timestamp,
+etl_batch_no,etl_batch_date
 FROM processed_data
 
 {% if is_incremental() %}
 WHERE 
-    processed_data.src_update_timestamp > {{this}}.dw_update_timestamp
-    OR {{this}}.productline IS NULL  -- Handle new and updated rows only
+    processed_data.src_update_timestamp > processed_data.dw_update_timestamp
+    OR processed_data.dw_productline IS NULL  -- Handle new and updated rows only
 {% endif %}
