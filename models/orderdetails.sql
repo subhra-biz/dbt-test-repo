@@ -27,6 +27,7 @@ staging_orderdetails AS (
 -- Fetch existing data in target for incremental load (only records that need updating or inserting)
 existing_orderdetails AS (
     SELECT 
+        dw_orderdetail_id,  
         src_orderNumber,
         src_productCode,
         dw_order_id,
@@ -64,7 +65,8 @@ final_data AS (
         bc.etl_batch_date,
         -- Add foreign keys for dw_order_id and dw_product_id
         fku.dw_order_id,
-        fku.dw_product_id
+        fku.dw_product_id,
+        row_number() over() + coalesce(max(dw.dw_orderdetail_id)over(),0) dw_orderdetail_id
     FROM staging_orderdetails AS st
     CROSS JOIN batch_control AS bc
     LEFT JOIN existing_orderdetails AS dw
