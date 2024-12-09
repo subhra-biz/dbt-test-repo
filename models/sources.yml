@@ -9,3 +9,4 @@ sources:
       - name: offices
       - name: employees
       - name: customers
+      - name: payments
