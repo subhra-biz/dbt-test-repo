@@ -6,3 +6,4 @@ sources:
     tables:
       - name: productlines # Table name in Redshift
       - name: products
+      - name: offices
