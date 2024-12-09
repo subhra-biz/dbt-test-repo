@@ -54,6 +54,7 @@ SELECT
     quantityinstock,
     buyprice,
     msrp,
+    '' as productdescription,
     COALESCE(product_line_id, existing_dw_product_line_id) AS dw_product_line_id,
     CASE
         WHEN existing_src_productcode IS NULL THEN create_timestamp
