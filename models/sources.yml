@@ -7,3 +7,4 @@ sources:
       - name: productlines # Table name in Redshift
       - name: products
       - name: offices
+      - name: employees
