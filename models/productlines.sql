@@ -26,6 +26,6 @@ FROM processed_data
 
 {% if is_incremental() %}
 WHERE 
-    processed_data.src_update_timestamp > {{ this }}.dw_update_timestamp
+    processed_data.src_update_timestamp > devdw.productlines.dw_update_timestamp
     OR devdw.productlines.productline IS NULL  -- Handle new and updated rows only
 {% endif %}
