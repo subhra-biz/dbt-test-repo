@@ -1,0 +1,94 @@
+{{ config(
+    materialized='incremental',
+    unique_key=['src_orderNumber', 'src_productCode']
+) }}
+
+-- Fetch the latest batch metadata
+WITH batch_control AS (
+    SELECT 
+        etl_batch_no, 
+        etl_batch_date
+    FROM etl_metadata.batch_control
+),
+
+-- Fetch staging data for orderdetails
+staging_orderdetails AS (
+    SELECT
+        orderNumber AS src_orderNumber,
+        productCode AS src_productCode,
+        quantityOrdered,
+        priceEach,
+        orderLineNumber,
+        update_timestamp AS src_update_timestamp,
+        create_timestamp AS src_create_timestamp
+    FROM {{ source('devstage', 'orderdetails') }}
+),
+
+-- Fetch existing data in target for incremental load (only records that need updating or inserting)
+existing_orderdetails AS (
+    SELECT 
+        src_orderNumber,
+        src_productCode,
+        dw_order_id,
+        dw_product_id
+    FROM {{ this }}
+),
+
+-- Fetch foreign key mappings for orders and products
+foreign_key_updates AS (
+    SELECT 
+        od.src_orderNumber,
+        od.src_productCode,
+        o.dw_order_id,
+        p.dw_product_id
+    FROM {{ ref('orders') }} AS o
+    JOIN {{ this }} AS od
+    ON o.src_orderNumber = od.src_orderNumber
+    JOIN {{ref("products")}} AS p
+    ON od.src_productCode = p.src_productCode
+),
+
+-- Combine staging and existing data to determine which records need to be inserted or updated
+final_data AS (
+    SELECT
+        st.src_orderNumber,
+        st.src_productCode,
+        st.quantityOrdered,
+        st.priceEach,
+        st.orderLineNumber,
+        st.src_create_timestamp,
+        st.src_update_timestamp,
+        CURRENT_TIMESTAMP AS dw_create_timestamp,
+        CURRENT_TIMESTAMP AS dw_update_timestamp,
+        bc.etl_batch_no,
+        bc.etl_batch_date,
+        -- Add foreign keys for dw_order_id and dw_product_id
+        fku.dw_order_id,
+        fku.dw_product_id
+    FROM staging_orderdetails AS st
+    CROSS JOIN batch_control AS bc
+    LEFT JOIN existing_orderdetails AS dw
+        ON st.src_orderNumber = dw.src_orderNumber
+        AND st.src_productCode = dw.src_productCode
+    LEFT JOIN foreign_key_updates AS fku
+        ON st.src_orderNumber = fku.src_orderNumber
+        AND st.src_productCode = fku.src_productCode
+    WHERE dw.src_orderNumber IS NULL
+)
+
+-- Insert or update records in the target table
+SELECT
+    src_orderNumber,
+    src_productCode,
+    quantityOrdered,
+    priceEach,
+    orderLineNumber,
+    src_create_timestamp,
+    src_update_timestamp,
+    dw_create_timestamp,
+    dw_update_timestamp,
+    etl_batch_no,
+    etl_batch_date,
+    dw_order_id,
+    dw_product_id
+FROM final_data
