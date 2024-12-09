@@ -35,19 +35,6 @@ existing_orderdetails AS (
     FROM {{ this }}
 ),
 
--- Fetch foreign key mappings for orders and products
-foreign_key_updates AS (
-    SELECT 
-        od.src_orderNumber,
-        od.src_productCode,
-        o.dw_order_id,
-        p.dw_product_id
-    FROM {{ ref('orders') }} AS o
-    JOIN {{ this }} AS od
-    ON o.src_orderNumber = od.src_orderNumber
-    JOIN {{ref("products")}} AS p
-    ON od.src_productCode = p.src_productCode
-),
 
 -- Combine staging and existing data to determine which records need to be inserted or updated
 final_data AS (
@@ -64,22 +51,22 @@ final_data AS (
         bc.etl_batch_no,
         bc.etl_batch_date,
         -- Add foreign keys for dw_order_id and dw_product_id
-        fku.dw_order_id,
-        fku.dw_product_id,
+        o.dw_order_id,
+        p.dw_product_id,
         row_number() over() + coalesce(max(dw.dw_orderdetail_id)over(),0) dw_orderdetail_id
     FROM staging_orderdetails AS st
     CROSS JOIN batch_control AS bc
     LEFT JOIN existing_orderdetails AS dw
         ON st.src_orderNumber = dw.src_orderNumber
         AND st.src_productCode = dw.src_productCode
-    LEFT JOIN foreign_key_updates AS fku
-        ON st.src_orderNumber = fku.src_orderNumber
-        AND st.src_productCode = fku.src_productCode
+    left join {{ref("orders")}} o  on st.src_ordernumber=o.src_ordernumber
+    left join {{ref("products")}} p on st.src_productcode=p.src_productcode
     WHERE dw.src_orderNumber IS NULL
 )
 
 -- Insert or update records in the target table
 SELECT
+    dw_orderdetail_id,
     src_orderNumber,
     src_productCode,
     quantityOrdered,
