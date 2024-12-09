@@ -25,7 +25,13 @@ staging_orders AS (
         update_timestamp AS src_update_timestamp
     FROM {{ source('devstage', 'orders') }}
 ),
-
+-- Fetch the corresponding dw_customer_id from the Customers table
+customer_mapping AS (
+    SELECT 
+        src_customerNumber,
+        dw_customer_id
+    FROM {{ ref('customers') }}  -- Referring to the customers model in dbt
+),
 -- Determine the current max dw_order_id in the target table
 max_id AS (
     SELECT 
@@ -45,6 +51,7 @@ final_data AS (
         st.src_customerNumber,
         st.src_create_timestamp,
         st.src_update_timestamp,
+        cm.dw_customer_id,
         CURRENT_TIMESTAMP AS dw_create_timestamp,
         CURRENT_TIMESTAMP AS dw_update_timestamp,
         bc.etl_batch_no,
@@ -53,6 +60,8 @@ final_data AS (
         ROW_NUMBER() OVER () + (SELECT max_order_id FROM max_id) AS dw_order_id
     FROM staging_orders AS st
     CROSS JOIN batch_control AS bc
+    JOIN customer_mapping AS cm
+        ON st.src_customerNumber = cm.src_customerNumber
     LEFT JOIN {{ this }} AS dw
         ON st.src_orderNumber = dw.src_orderNumber
     WHERE dw.src_orderNumber IS NULL
