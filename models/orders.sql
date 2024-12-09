@@ -52,6 +52,7 @@ final_data AS (
         st.src_create_timestamp,
         st.src_update_timestamp,
         cm.dw_customer_id,
+        '' as comments,
         CURRENT_TIMESTAMP AS dw_create_timestamp,
         CURRENT_TIMESTAMP AS dw_update_timestamp,
         bc.etl_batch_no,
