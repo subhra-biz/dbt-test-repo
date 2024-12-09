@@ -17,7 +17,7 @@ WITH processed_data AS (
             + COALESCE(MAX(dw.dw_product_line_id) OVER (), 0) AS dw_product_line_id
     FROM 
         devstage.productlines AS st
-    LEFT JOIN devdw.productlines AS dw
+    LEFT JOIN {{this}} AS dw
         ON st.productline = dw.productline
 )
 
@@ -26,6 +26,6 @@ FROM processed_data
 
 {% if is_incremental() %}
 WHERE 
-    processed_data.src_update_timestamp > devdw.productlines.dw_update_timestamp
-    OR devdw.productlines.productline IS NULL  -- Handle new and updated rows only
+    processed_data.src_update_timestamp > {{this}}.dw_update_timestamp
+    OR {{this}}.productline IS NULL  -- Handle new and updated rows only
 {% endif %}
