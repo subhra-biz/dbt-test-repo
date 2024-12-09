@@ -2,87 +2,76 @@
     materialized='incremental'
 ) }}
 
-WITH source_data AS (
+WITH batch_metadata AS (
     SELECT
-        productcode AS src_productcode,
-        productname,
-        productline,
-        productscale,
-        productvendor,
-        quantityinstock,
-        buyprice,
-        msrp,
-        create_timestamp,
-        update_timestamp,
-        1001 AS etl_batch_no,
-        TO_DATE('2001-01-01', 'YYYY-MM-DD') AS etl_batch_date
-    FROM
-        devstage.products
-),
-
-product_lines AS (
-    SELECT
-        productline,
-        dw_product_line_id
-    FROM
-        devdw.productlines
-),
-
-existing_data AS (
-    SELECT
-        src_productcode,
-        productname,
-        productline,
-        productscale,
-        productvendor,
-        quantityinstock,
-        buyprice,
-        msrp,
-        dw_product_line_id,
-        src_create_timestamp,
-        src_update_timestamp,
         etl_batch_no,
-        etl_batch_date,
-        dw_update_timestamp,
-        dw_product_id
-    FROM
-        devdw.products  -- Refers to the current state of the table created by dbt
+        etl_batch_date
+    FROM etl_metadata.batch_control
+   
 ),
 
-ranked_data AS (
+merged_data AS (
     SELECT
-        source_data.src_productcode,
-        source_data.productname,
-        source_data.productline,
-        source_data.productscale,
-        source_data.productvendor,
-        source_data.quantityinstock,
-        source_data.buyprice,
-        source_data.msrp,
-        COALESCE(pl.dw_product_line_id, existing_data.dw_product_line_id) AS dw_product_line_id,
-        CASE
-            WHEN existing_data.src_productcode IS NULL THEN source_data.create_timestamp
-            ELSE existing_data.src_create_timestamp
-        END AS src_create_timestamp,
-        COALESCE(source_data.update_timestamp, existing_data.src_update_timestamp) AS src_update_timestamp,
-        1001 AS etl_batch_no,
-        TO_DATE('2001-01-01', 'YYYY-MM-DD') AS etl_batch_date,
-        CURRENT_TIMESTAMP AS dw_create_timestamp,
-        CASE
-            WHEN source_data.src_productcode IS NOT NULL THEN CURRENT_TIMESTAMP
-            ELSE existing_data.dw_update_timestamp
-        END AS dw_update_timestamp,
-        ROW_NUMBER() OVER (ORDER BY source_data.src_productcode) + COALESCE(MAX(existing_data.dw_product_id) OVER (), 0) AS dw_product_id
+        s.productcode AS src_productcode,
+        s.productname,
+        s.productline,
+        s.productscale,
+        s.productvendor,
+        s.quantityinstock,
+        s.buyprice,
+        s.msrp,
+        s.create_timestamp,
+        s.update_timestamp,
+        bm.etl_batch_no,
+        bm.etl_batch_date,
+        e.src_productcode AS existing_src_productcode,
+        e.dw_product_line_id AS existing_dw_product_line_id,
+        e.src_create_timestamp AS existing_src_create_timestamp,
+        e.src_update_timestamp AS existing_src_update_timestamp,
+        e.dw_update_timestamp AS existing_dw_update_timestamp,
+        e.dw_product_id AS existing_dw_product_id,
+        pl.dw_product_line_id AS product_line_id
     FROM
-        source_data
-    LEFT JOIN existing_data ON source_data.src_productcode = existing_data.src_productcode
-    LEFT JOIN product_lines pl ON source_data.productline = pl.productline
+        {{source("devstage","products")}} s
+    CROSS JOIN
+        batch_metadata bm
+    LEFT JOIN
+        {{this}} e
+    ON
+        s.productcode = e.src_productcode
+    LEFT JOIN
+        {{ref('productlines')}} pl
+    ON
+        s.productline = pl.productline
 )
 
-SELECT *
-FROM ranked_data
+SELECT
+    src_productcode,
+    productname,
+    productline,
+    productscale,
+    productvendor,
+    quantityinstock,
+    buyprice,
+    msrp,
+    COALESCE(product_line_id, existing_dw_product_line_id) AS dw_product_line_id,
+    CASE
+        WHEN existing_src_productcode IS NULL THEN create_timestamp
+        ELSE existing_src_create_timestamp
+    END AS src_create_timestamp,
+    COALESCE(update_timestamp, existing_src_update_timestamp) AS src_update_timestamp,
+    etl_batch_no,
+    etl_batch_date,
+    CURRENT_TIMESTAMP AS dw_create_timestamp,
+    CASE
+        WHEN src_productcode IS NOT NULL THEN CURRENT_TIMESTAMP
+        ELSE existing_dw_update_timestamp
+    END AS dw_update_timestamp,
+    ROW_NUMBER() OVER (ORDER BY src_productcode) + COALESCE(MAX(existing_dw_product_id) OVER (), 0) AS dw_product_id
+FROM
+    merged_data
 
 {% if is_incremental() %}
 WHERE
-    ranked_data.src_productcode IS NOT NULL  -- Only process new or updated rows
+    src_productcode IS NOT NULL  -- Only process new or updated rows
 {% endif %}
