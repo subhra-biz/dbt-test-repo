@@ -57,3 +57,6 @@ final_data AS (
 -- Insert or update records in the target table
 SELECT *
 FROM final_data
+{% if is_incremental() %}
+WHERE checkNumber IS NOT NULL -- Adjust this condition as needed
+{% endif %}
