@@ -39,3 +39,6 @@ with ranked_data as (
 
 select *
 from ranked_data
+{% if is_incremental() %}
+WHERE src_customernumber IS NOT NULL -- Adjust this condition as needed
+{% endif %}
