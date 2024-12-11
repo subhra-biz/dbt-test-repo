@@ -53,22 +53,23 @@ FROM source_data AS sd
 JOIN existing_data AS ed
     ON sd.dw_customer_id = ed.dw_customer_id 
     and sd.creditlimit  != ed.creditlimit
-UNION ALL
-SELECT
-    -- When creditLimit changes, insert new records
-    sd.dw_customer_id,
-    sd.creditlimit,
-    1 AS dw_active_record_ind,
-    sd.effective_from_date,
-    '2099-12-31'::DATE as effective_to_date,
-    CURRENT_TIMESTAMP AS dw_update_timestamp,
-    CURRENT_TIMESTAMP as dw_create_timestamp,
-    sd.etl_batch_no as create_etl_batch_no,
-    sd.etl_batch_date as create_etl_batch_date,
-    sd.etl_batch_no as update_etl_batch_no,
-    sd.etl_batch_date as update_etl_batch_date
-FROM source_data AS sd
-left JOIN existing_data AS ed
-    ON sd.dw_customer_id = ed.dw_customer_id 
-    and sd.creditlimit  != ed.creditlimit
-where ed.dw_customer_id is NULL
+
+-- UNION ALL
+-- SELECT
+--     -- When creditLimit changes, insert new records
+--     sd.dw_customer_id,
+--     sd.creditlimit,
+--     1 AS dw_active_record_ind,
+--     sd.effective_from_date,
+--     '2099-12-31'::DATE as effective_to_date,
+--     CURRENT_TIMESTAMP AS dw_update_timestamp,
+--     CURRENT_TIMESTAMP as dw_create_timestamp,
+--     sd.etl_batch_no as create_etl_batch_no,
+--     sd.etl_batch_date as create_etl_batch_date,
+--     sd.etl_batch_no as update_etl_batch_no,
+--     sd.etl_batch_date as update_etl_batch_date
+-- FROM source_data AS sd
+-- left JOIN existing_data AS ed
+--     ON sd.dw_customer_id = ed.dw_customer_id 
+--     and sd.creditlimit  != ed.creditlimit
+-- where ed.dw_customer_id is NULL
