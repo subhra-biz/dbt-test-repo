@@ -68,5 +68,5 @@ SELECT
 FROM source_data AS sd
  left JOIN existing_data AS ed
     ON sd.dw_product_id = ed.dw_product_id 
-    and sd.msrp  != ed.msrp
+    and sd.msrp  = ed.msrp
 where ed.dw_product_id is null
