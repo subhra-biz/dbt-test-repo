@@ -12,3 +12,4 @@ sources:
       - name: payments
       - name: orders
       - name: orderdetails
+      - name: customer_history
