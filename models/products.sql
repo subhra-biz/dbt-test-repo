@@ -14,6 +14,7 @@ WITH batch_metadata AS (
 merged_data AS (
     SELECT
         s.productcode AS src_productcode,
+        e.dw_product_id,
         s.productname,
         s.productline,
         s.productscale,
@@ -69,7 +70,7 @@ SELECT
         WHEN src_productcode IS NOT NULL THEN CURRENT_TIMESTAMP
         ELSE existing_dw_update_timestamp
     END AS dw_update_timestamp,
-    ROW_NUMBER() OVER (ORDER BY src_productcode) + COALESCE(MAX(existing_dw_product_id) OVER (), 0) AS dw_product_id
+    coalesce(dw_product_id,ROW_NUMBER() OVER (ORDER BY src_productcode) + COALESCE(MAX(existing_dw_product_id) OVER (), 0)) AS dw_product_id
 FROM
     merged_data
 
