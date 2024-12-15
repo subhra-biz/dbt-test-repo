@@ -1,6 +1,8 @@
 -- models/monthly_product_summary.sql
 
-{{ config(materialized='incremental') }}
+{{ config(materialized='incremental',
+    unique_key=['dw_product_id', 'start_of_the_month_date'])
+ }}
 
 WITH batch_control AS (
     SELECT 
